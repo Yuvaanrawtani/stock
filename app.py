@@ -18,8 +18,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.bond_analysis import is_bond
-from src.case import (
+from bond_analysis import is_bond
+from case import (
     CLIENT_NAME,
     LAURA_ROLES,
     PHILOSOPHY,
@@ -27,36 +27,36 @@ from src.case import (
     WINS_NOT_LAURA,
     capital_clock_emphasis,
 )
-from src.country import score_country
-from src.data_engine import (
+from country import score_country
+from data_engine import (
     parse_financials,
     parse_holdings,
     parse_prices,
     parse_research,
     parse_universe,
 )
-from src.data_quality import quality_rows
-from src.demo import load_demo
-from src.engine import data_mode, datapoints, holdings_quality_by_etf, returns_map
-from src.explain import INFO
-from src.funding import path_summary, project_path, reserve_requirement
-from src.industry import analyze_industry
-from src.ips import build_ips
-from src.markowitz import apply_group_caps, efficient_frontier, optimize
-from src.metrics import correlation_matrix
-from src.ml import walk_forward_ridge
-from src.monte_carlo import simulate
-from src.portfolio import derive_engines, historical_portfolio_stats
-from src.reports import build_report
-from src.scenario_engine import run_scenarios
-from src.scoring import FUNNEL_STAGES, min_max_rank, run_funnel, weighted_score
-from src.sentiment import tension_from_sentiment
-from src.store import default_state, load_state, save_state
-from src.thesis_engine import bucket_half_life, completeness, default_card, dna_vector, explain_decision
-from src.trading import new_trade
-from src.trading_notes import analyze_three, new_note
-from src.universe import classify_asset, wins_gate
-from src.valuation import valuation_pack
+from data_quality import quality_rows
+from demo import load_demo
+from engine import data_mode, datapoints, holdings_quality_by_etf, returns_map
+from explain import INFO
+from funding import path_summary, project_path, reserve_requirement
+from industry import analyze_industry
+from ips import build_ips
+from markowitz import apply_group_caps, efficient_frontier, optimize
+from metrics import correlation_matrix
+from ml import walk_forward_ridge
+from monte_carlo import simulate
+from portfolio import derive_engines, historical_portfolio_stats
+from reports import build_report
+from scenario_engine import run_scenarios
+from scoring import FUNNEL_STAGES, min_max_rank, run_funnel, weighted_score
+from sentiment import tension_from_sentiment
+from store import default_state, load_state, save_state
+from thesis_engine import bucket_half_life, completeness, default_card, dna_vector, explain_decision
+from trading import new_trade
+from trading_notes import analyze_three, new_note
+from universe import classify_asset, wins_gate
+from valuation import valuation_pack
 
 st.set_page_config(page_title="WInS Thesis Tension Engine", layout="wide")
 
