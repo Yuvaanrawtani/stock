@@ -1,0 +1,4 @@
+etf_ticker,holding_ticker,holding_name,weight
+VTI,AAPL,Apple Inc,0.06
+VTI,MSFT,Microsoft Corp,0.06
+VTI,NVDA,NVIDIA Corp,0.05

@@ -1,0 +1,242 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WInS Screener</title>
+<style>
+:root{--bg:#f6f7f9;--cd:#fff;--tx:#1b1f24;--mu:#667085;--bd:#e2e5ea;--ac:#2f6fed;--ok:#17924f;--wn:#c47f00;--er:#d03b35;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1318;--cd:#181e26;--tx:#e8ecf1;--mu:#98a2b3;--bd:#2a323d;--ac:#6b9bff;--ok:#3fc57e;--wn:#f0b429;--er:#ff6b63}}
+:root[data-theme="dark"]{--bg:#0f1318;--cd:#181e26;--tx:#e8ecf1;--mu:#98a2b3;--bd:#2a323d;--ac:#6b9bff;--ok:#3fc57e;--wn:#f0b429;--er:#ff6b63}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:960px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:16px;margin:14px 0 6px}.mu{color:var(--mu);font-size:13px}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.tabs button{flex:none}
+button,.btn{background:var(--cd);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font:inherit;cursor:pointer;display:inline-block}
+button.on,button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+input[type=number],input[type=text]{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:6px;width:90px;font:inherit}
+input[type=file]{display:none}.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.b{padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;display:inline-block;border:1px solid}
+.HIGH{color:var(--ok)}.PARTIAL{color:var(--wn)}.INSUF{color:var(--er)}
+.ban{padding:8px 12px;border-radius:10px;border:1px solid;font-weight:600;margin:8px 0}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+th{cursor:pointer;color:var(--mu);font-weight:600}th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--cd)}
+.na{color:var(--mu);font-size:11px;white-space:normal;display:inline-block;min-width:110px}
+pre{white-space:pre-wrap;font-size:12px;margin:0}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.g div{background:var(--bg);border-radius:10px;padding:8px}.g b{font-size:18px;display:block}
+</style></head><body><main>
+<h1>📈 WInS Screener</h1><div class="mu" id="hd"></div>
+<div class="tabs" id="tabs"></div><div id="v"></div>
+</main>
+<script>
+const MK=["last_close","daily_return","monthly_return","ann_return","cagr","volatility","beta","alpha","sharpe","max_drawdown","correlation","r_squared"];
+const GRP={stock:["market_cap","pe_ratio","dividend_yield","eps","profit_margin","roe","sector","news_sentiment","news_count"],etf:["expense_ratio","aum","news_sentiment","news_count"],bond:["bond_yield","bond_duration","bond_maturity","news_sentiment","news_count"]};
+const EXTRA=new Set(Object.values(GRP).flat());
+const PCT=new Set(["daily_return","monthly_return","ann_return","cagr","volatility","alpha","max_drawdown","dividend_yield","profit_margin","roe","expense_ratio"]);
+const NA="N/A — unavailable from current provider.";
+const EQ="ARKK GRID FAN PAVE TAN PHO PBW IBB DGRO ESGU ICLN INDA EWW EWT ITA BBCA XLU ESGV VWO VHT VNQ VTI VT VSS VNQI MSOS IPO JEPI COWZ LQCL XLC XLP XLE XLF XLV XLI RSP ESGE EWA EWZ MCHI DSI USMV QUAL ESGD MOAT VEU VEA VGK VOO VXUS XLB XLY QQQ MTUM IWF XLK SMH VUG VGT IWD NOBL SCHD VIG VYM VTV IJH VO IJR IWM AVUV".split(" "),FI="AGG JPST BSV BND BNDX FTSL HYLS IGSB FALN HYG LQD JNK VCIT VCSH SHY TLT IEF EMB SHV GOVT BIL VGSH USFR EMLC VTIP TIP MBB MUB VTEB".split(" ");
+const cls=a=>{a=(a||"").toLowerCase();return/etf|fund/.test(a)?"etf":/bond|fixed/.test(a)?"bond":"stock"};
+const exp=u=>MK.concat(GRP[cls(u.c)]);
+const lab=(p,s,d)=>p>=.9&&!s&&!d?"HIGH CONFIDENCE":p>=.5?"PARTIAL DATA":"INSUFFICIENT DATA";
+const lc=l=>l[0]==="H"?"HIGH":l[0]==="P"?"PARTIAL":"INSUF";
+const mean=x=>x.reduce((s,v)=>s+v,0)/x.length;
+const cov=(x,y)=>{const a=mean(x),b=mean(y);return x.reduce((s,v,i)=>s+(v-a)*(y[i]-b),0)/(x.length-1)};
+const now=()=>new Date().toISOString().slice(0,19)+"Z";
+const mkS=()=>({u:[],px:{},src:{},at:{},ex:{},cfg:{rf:.04,bench:"SPY",lb:1095},last:null,log:[],rej:0,dupU:0,dupP:0,ml:null,sample:false,
+ w:{sharpe:.3,cagr:.2,alpha:.1,volatility:.2,max_drawdown:.2},f:{a:{},lo:{},hi:{},q:""},dec:{},pw:{},sel:"",xt:"Report outline",
+ fc:{r:.05,sd:.10,inf:.025,rf:.03,idx:false,n:5000},
+ sc:[{n:"Base case",dr:0,sy:2029,sr:0},{n:"Low return",dr:-.03,sy:2029,sr:0},{n:"High volatility",dr:-.01,sy:2030,sr:-.2},{n:"Equity drawdown",dr:0,sy:2029,sr:-.35},{n:"Recession",dr:-.01,sy:2031,sr:-.25},{n:"High inflation",dr:0,sy:2029,sr:0,inf:.06,idx:true},{n:"Interest-rate shock",dr:-.01,sy:2028,sr:-.12},{n:"Combined stress",dr:-.03,sy:2032,sr:-.35,inf:.06,idx:true}]});
+let S=mkS(),tab="Data";
+try{const x=localStorage.getItem("wins2");if(x)S=Object.assign(mkS(),JSON.parse(x))}catch(e){}
+const save=()=>{try{localStorage.setItem("wins2",JSON.stringify(S))}catch(e){}};
+// ---------- data layer ----------
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const hash=s=>{let h=2166136261;for(const c of s)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0};
+const gz=r=>Math.sqrt(-2*Math.log(1-r()))*Math.cos(2*Math.PI*r());
+function demoPx(t){const mk=rng(42),r=rng(hash(t)),sp=t==="SPY",beta=sp?1:.4+r()*1.2,iv=sp?.0005:.006+r()*.006;let p=50+r()*200,d=new Date(Date.UTC(2025,11,31));const days=[];
+ while(days.length<800){if(d.getUTCDay()%6)days.push(d.toISOString().slice(0,10));d=new Date(d-864e5)}
+ return days.reverse().map(x=>[x,+(p*=1+beta*(.0004+.01*gz(mk))+iv*gz(r)).toFixed(4)])}
+function clean(rows){const m=new Map();for(const[d,p]of rows){const x=+p,ds=String(d).slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)||!(x>0)||!isFinite(x)){S.rej++;continue}if(m.has(ds))S.dupP++;m.set(ds,x)}return[...m].sort((a,b)=>a[0]<b[0]?-1:1)}
+const csv=t=>{const L=t.trim().split(/\r?\n/).map(l=>l.split(",").map(x=>x.trim().replace(/^"|"$/g,"")));return{h:L[0].map(x=>x.toLowerCase()),r:L.slice(1)}};
+const col=(h,n)=>n.map(x=>h.indexOf(x)).find(i=>i>=0);
+function setUniverse(rows){S.u=[];S.ex={};S.dupU=0;const seen=new Set();
+ for(const r of rows){const t=(r.t||"").toUpperCase();if(!t)continue;if(seen.has(t)){S.dupU++;continue}seen.add(t);S.u.push({t,n:r.n||"",c:r.c||"",a:r.a||{}});if(r.x)S.ex[t]=r.x}S.at._u=now();S.sample=false;S.dec={};S.pw={};S.sel=""}
+function loadUniverse(text){const{h,r}=csv(text),ti=col(h,["ticker","symbol"]),ni=col(h,["name","security name"]),ci=col(h,["asset_class","asset class"]);
+ if(ti==null)return log("Universe CSV needs a ticker (or symbol) column.");
+ setUniverse(r.map(x=>{const e={},a={};h.forEach((k,i)=>{if(x[i]===""||x[i]==null)return;if(EXTRA.has(k))e[k]=isNaN(+x[i])?x[i]:+x[i];else if(![ti,ni,ci].includes(i))a[k]=x[i]});return{t:x[ti],n:ni!=null?x[ni]:"",c:ci!=null?x[ci]:"",x:e,a}}));
+ log("Loaded universe: "+S.u.length+" securities, "+S.dupU+" duplicates skipped.");save();draw()}
+function loadPrices(text){const{h,r}=csv(text),by={};S.rej=0;S.dupP=0;
+ const ti=col(h,["ticker","symbol"]),di=col(h,["date"]),pi=col(h,["close","adj close","price"]);
+ if(ti!=null&&di!=null&&pi!=null)r.forEach(x=>(by[x[ti].toUpperCase()]=by[x[ti].toUpperCase()]||[]).push([x[di],x[pi]]));
+ else if(h[0]==="date")h.slice(1).forEach((t,j)=>by[t.toUpperCase()]=r.map(x=>[x[0],x[j+1]]));
+ else return log("Prices CSV: use columns ticker,date,close  OR  date,TICKER1,TICKER2,… (dates as YYYY-MM-DD).");
+ for(const t in by){S.px[t]=clean(by[t]);S.src[t]="upload";S.at[t]=now()}
+ log("Loaded prices for "+Object.keys(by).length+" tickers; rejected "+S.rej+" invalid rows.");save();draw()}
+function loadDemo(){setUniverse([...EQ.map(t=>({t,n:"",c:"Equity ETF"})),...FI.map(t=>({t,n:"",c:"Fixed Income ETF"}))]);S.sample=true;S.px={};S.rej=0;S.dupP=0;S.ml=null;
+ for(const t of [...S.u.map(u=>u.t),"SPY"]){S.px[t]=demoPx(t);S.src[t]="demo";S.at[t]=now()}S.last=now();log("Sample loaded: your 100 tickers (names/countries/sectors NOT included — upload your full table for those). Prices are SYNTHETIC demo data ending 2025-12-31.");save();draw()}
+function refresh(){const L=["1. Read universe: "+S.u.length+" securities"];let d=0,k=0;
+ for(const u of S.u){if(S.src[u.t]==="demo"){S.px[u.t]=demoPx(u.t);S.at[u.t]=now();d++}else if(S.px[u.t])k++}
+ if(S.src.SPY==="demo"){S.px.SPY=demoPx("SPY");S.at.SPY=now()}L.push("2-3. No live provider can be called from a web page. Demo series regenerated: "+d+"; uploaded series kept as-is: "+k+"; no data (N/A): "+(S.u.length-d-k));
+ L.push("4-7. Validated, normalized and recalculated metrics from cached prices.","8. Screening table updated.","9. Timestamp recorded: "+now());S.last=now();S.log=L;save();draw()}
+function log(m){S.log=[m];draw()}
+function compute(a,b,rf,lb){if(!a||!b||!a.length||!b.length)return null;
+ const cut=new Date(new Date(a[a.length-1][0])-lb*864e5).toISOString().slice(0,10),A=new Map(a.filter(x=>x[0]>=cut)),B=new Map(b.filter(x=>x[0]>=cut)),D=[...A.keys()].filter(d=>B.has(d)).sort();
+ if(D.length<60)return null;const ar=[],br=[];for(let i=1;i<D.length;i++){ar.push(A.get(D[i])/A.get(D[i-1])-1);br.push(B.get(D[i])/B.get(D[i-1])-1)}
+ const aa=mean(ar)*252,ab=mean(br)*252,va=cov(ar,ar),vb=cov(br,br),cv=cov(ar,br),vol=Math.sqrt(va*252),beta=vb>0?cv/vb:null,corr=va>0&&vb>0?cv/Math.sqrt(va*vb):null,yrs=(new Date(D[D.length-1])-new Date(D[0]))/3.15576e10;
+ let pk=0,dd=0;const mo={};for(const d of D){const v=A.get(d);pk=Math.max(pk,v);dd=Math.min(dd,v/pk-1);mo[d.slice(0,7)]=v}const m=Object.values(mo);
+ return{v:{daily_return:ar[ar.length-1],monthly_return:m.length>1?m[m.length-1]/m[m.length-2]-1:null,ann_return:aa,cagr:yrs>0?Math.pow(A.get(D[D.length-1])/A.get(D[0]),1/yrs)-1:null,volatility:vol,beta,alpha:beta==null?null:aa-(rf+beta*(ab-rf)),sharpe:vol>0?(aa-rf)/vol:null,max_drawdown:dd,correlation:corr,r_squared:corr==null?null:corr*corr},p:D[0]+".."+D[D.length-1]}}
+function dps(){const out={};for(const u of S.u){const t=u.t,o=out[t]={},px=S.px[t],src=S.src[t]||"",st=src==="demo"?"DEMO":"OK";
+ if(px&&px.length){o.last_close={v:px[px.length-1][1],st,at:S.at[t]};const c=compute(px,S.px[S.cfg.bench],S.cfg.rf,S.cfg.lb);if(c)for(const k in c.v)if(c.v[k]!=null&&isFinite(c.v[k]))o[k]={v:c.v[k],st,at:S.at[t]}}
+ for(const k in S.ex[t]||{})o[k]={v:S.ex[t][k],st:"OK",at:S.at._u};
+ if(S.ml&&S.ml.s[t]!=null)o.ml_score={v:S.ml.s[t],st:S.ml.demo?"DEMO":"OK",at:S.ml.at}}return out}
+function quality(D){const rows=S.u.map(u=>{const o=D[u.t],e=exp(u),miss=e.filter(k=>!o[k]),p=1-miss.length/e.length,at=Object.values(o).map(x=>x.at).filter(Boolean).sort().pop(),
+ stale=!at||(Date.now()-new Date(at))/864e5>7,demo=Object.values(o).some(x=>x.st==="DEMO");return{t:u.t,p,miss,stale,demo,l:lab(p,stale,demo)}});
+ const avg=rows.length?mean(rows.map(r=>r.p)):0;return{rows,avg,all:rows.length?lab(avg,rows.some(r=>r.stale),rows.some(r=>r.demo)):"INSUFFICIENT DATA"}}
+// ---------- ML (ridge, walk-forward) ----------
+const rank=a=>{const o=a.map((v,i)=>i).sort((x,y)=>a[x]-a[y]),r=[];o.forEach((i,k)=>r[i]=k);return r};
+const spear=(a,b)=>{const x=rank(a),y=rank(b);return cov(x,y)/Math.sqrt(cov(x,x)*cov(y,y))};
+function ridge(tr,al){const n=9,A=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?al:0)),b=Array(n).fill(0);
+ for(const r of tr)for(let i=0;i<n;i++){b[i]+=r.x[i]*r.y;for(let j=0;j<n;j++)A[i][j]+=r.x[i]*r.x[j]}
+ for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];[b[i],b[p]]=[b[p],b[i]];
+  for(let r=i+1;r<n;r++){const f=A[r][i]/A[i][i];for(let c=i;c<n;c++)A[r][c]-=f*A[i][c];b[r]-=f*b[i]}}
+ const w=Array(n).fill(0);for(let i=n-1;i>=0;i--){let s=b[i];for(let j=i+1;j<n;j++)s-=A[i][j]*w[j];w[i]=s/A[i][i]}return w}
+const dot=(w,x)=>w.reduce((s,v,i)=>s+v*x[i],0);
+function summ(ic,sp){ic=ic.filter(isFinite);const n=ic.length;if(n<6)return{n,verdict:"INSUFFICIENT DATA"};const sd=Math.sqrt(cov(ic,ic)),t=mean(ic)/(sd/Math.sqrt(n)+1e-12);
+ return{n,ic:mean(ic).toFixed(3),t:t.toFixed(2),hit:(ic.filter(x=>x>0).length/n*100).toFixed(0)+"%",sp:(mean(sp)*100).toFixed(2)+"%",verdict:t>=2?"SIGNAL (t≥2)":"NO SIGNIFICANT EDGE (t<2)"}}
+function train(){const B=S.px[S.cfg.bench],uni=S.u.filter(u=>u.t!==S.cfg.bench&&S.px[u.t]&&cls(u.c)!=="bond");
+ if(!B||uni.length<6)return{err:"Need benchmark prices plus at least 6 securities with prices."};
+ const D=B.map(x=>x[0]),bp=B.map(x=>x[1]),P={};
+ for(const u of uni){const m=new Map(S.px[u.t]);let l=null;P[u.t]=D.map(d=>{if(m.has(d))l=m.get(d);return l})}
+ const me=[];D.forEach((d,i)=>{if(i===D.length-1||D[i+1].slice(0,7)!==d.slice(0,7))me.push(i)});
+ if(me.length<24)return{err:"Need about 3 years of daily prices."};
+ const rows=[];
+ for(let k=12;k<me.length;k++){const i=me[k],rb=[];for(let j=i-125;j<=i;j++)rb.push(bp[j]/bp[j-1]-1);const vb=cov(rb,rb),cr=[];
+  for(const u of uni){const a=P[u.t];if(a[me[k-12]]==null||a[i-126]==null)continue;const r=[];for(let j=i-125;j<=i;j++)r.push(a[j]/a[j-1]-1);
+   const f=j=>a[i]/a[me[k-j]]-1,w=a.slice(i-125,i+1);let pk=0,dd=0;for(const v of w){pk=Math.max(pk,v);dd=Math.min(dd,v/pk-1)}
+   cr.push({k,t:u.t,x:[f(1),f(3),f(6),f(12),Math.sqrt(cov(r.slice(-63),r.slice(-63))*252),cov(r,rb)/vb,dd,f(3)-(bp[i]/bp[me[k-3]]-1),a[i]/pk-1],
+    y:k+1<me.length?(a[me[k+1]]/a[i]-1)-(bp[me[k+1]]/bp[i]-1):null})}
+  if(cr.length<6)continue;
+  for(let f=0;f<9;f++){const c=cr.map(r=>r.x[f]),m=mean(c),s=Math.sqrt(cov(c,c))+1e-9;cr.forEach(r=>r.x[f]=(r.x[f]-m)/s)}
+  if(cr[0].y!=null){const m=mean(cr.map(r=>r.y));cr.forEach(r=>r.y-=m)}rows.push(...cr)}
+ const by={};rows.forEach(r=>(by[r.k]=by[r.k]||[]).push(r));const ks=Object.keys(by).map(Number).sort((a,b)=>a-b),ok=ks.filter(k=>by[k][0].y!=null),R={ridge:{ic:[],sp:[]},baseline_mom6:{ic:[],sp:[]}};
+ for(const k of ok.slice(15)){const te=by[k],tr=ok.filter(j=>j<k).flatMap(j=>by[j]),w=ridge(tr,10),y=te.map(r=>r.y);
+  for(const[n,s]of[["ridge",te.map(r=>dot(w,r.x))],["baseline_mom6",te.map(r=>r.x[2])]]){R[n].ic.push(spear(s,y));const o=s.map((v,i)=>i).sort((a,b)=>s[a]-s[b]),q=Math.max(1,te.length/3|0);R[n].sp.push(mean(o.slice(-q).map(i=>y[i]))-mean(o.slice(0,q).map(i=>y[i])))}}
+ const w=ridge(ok.flatMap(k=>by[k]),10),sc={};(by[ks[ks.length-1]]||[]).filter(r=>r.y==null).forEach(r=>sc[r.t]=+dot(w,r.x).toFixed(6));
+ const demo=uni.some(u=>S.src[u.t]==="demo");
+ return{s:sc,at:now(),demo,date:D[D.length-1],rep:{ridge:summ(R.ridge.ic,R.ridge.sp),baseline_mom6:summ(R.baseline_mom6.ic,R.baseline_mom6.sp)}}}
+
+const esc=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+const LOW=new Set(["volatility"]),FK=["sharpe","cagr","volatility","beta","max_drawdown","expense_ratio","pe_ratio","dividend_yield"];
+const attr=(u,k)=>k==="asset_class"?u.c:(u.a||{})[k]||"";
+const INFO={sharpe:"What: return per unit of risk. Formula: (return − risk-free) ÷ volatility. High: better risk-adjusted past results. Low: little reward for the risk taken. Why: compares funds with different risk. Not a buy signal alone.",
+volatility:"What: how much returns swing (annualized std. dev.). High: bumpier ride. Low: steadier. Why: Laura needs cash on fixed dates.",
+beta:"What: sensitivity to the benchmark (cov ÷ benchmark variance). >1 moves more than the market, <1 less. Why: shows market dependence.",
+max_drawdown:"What: worst peak-to-trough fall. Closer to 0% = milder. Why: shows the worst pain in the sample.",
+cagr:"What: compound annual growth rate = (end ÷ start)^(1/years) − 1. High: faster past growth. Low: slower. Says nothing certain about the future.",
+alpha:"What: return beyond what beta to the benchmark explains. High: beat the benchmark for its risk. Low/negative: lagged. Noisy over short windows."};
+function score(D){const ks=Object.keys(S.w),rg={};for(const k of ks){const v=S.u.map(u=>D[u.t][k]&&D[u.t][k].v).filter(x=>x!=null);rg[k]=[Math.min(...v),Math.max(...v)]}
+ const o={};for(const u of S.u){const rows=[];let tw=0,sum=0;for(const k of ks){const c=D[u.t][k],w=+S.w[k];if(!c||!(w>0)||!isFinite(rg[k][0]))continue;const[a,b]=rg[k];let n=b>a?(c.v-a)/(b-a)*100:50;if(LOW.has(k))n=100-n;rows.push({k,raw:c.v,n,w});tw+=w}
+  rows.forEach(r=>{r.wn=r.w/tw;r.c=r.n*r.wn;sum+=r.c});o[u.t]={s:rows.length?sum:null,rows,miss:ks.filter(k=>!rows.find(r=>r.k===k))}}return o}
+function funnel(D,SC){const st=[];let L=S.u.slice();const add=(n,f)=>{const k=L.filter(f);st.push({n,a:L.length,r:L.length-k.length});L=k};
+ add("WInS universe",()=>true);
+ add("Class / country / sector / theme filters",u=>Object.entries(S.f.a).every(([k,v])=>!v||attr(u,k)===v)&&(!S.f.q||(u.t+" "+u.n).toLowerCase().includes(S.f.q.toLowerCase())));
+ add("Quant & risk limits (missing data = excluded)",u=>FK.every(k=>{const lo=S.f.lo[k],hi=S.f.hi[k],no=x=>x===""||x==null;if(no(lo)&&no(hi))return true;const c=D[u.t][k];if(!c)return false;const v=c.v*(PCT.has(k)?100:1);return(no(lo)||v>=+lo)&&(no(hi)||v<=+hi)}));
+ add("Has a score (enough data)",u=>SC[u.t].s!=null);
+ add("Team decision ≠ Remove",u=>(S.dec[u.t]||{}).d!=="Remove");
+ return{st,L}}
+const pxa=(t,D)=>{const m=new Map(S.px[t]||[]);let l=null;return D.map(d=>{if(m.has(d))l=m.get(d);return l})};
+function pstats(ts){const B=S.px[S.cfg.bench];if(!B)return null;const n=Math.min(B.length,Math.round(S.cfg.lb*.69)),DD=B.slice(-n).map(x=>x[0]),R=[],T=[];
+ for(const t of ts){const a=pxa(t,DD);if(a.some(x=>x==null))continue;T.push(t);R.push(a.slice(1).map((v,i)=>v/a[i]-1))}
+ if(T.length<2)return null;const raw=T.map(t=>S.pw[t]>0?+S.pw[t]:1),sw=raw.reduce((a,v)=>a+v,0),w=raw.map(v=>v/sw),pr=R[0].map((_,j)=>R.reduce((a,r,i)=>a+w[i]*r[j],0)),vp=cov(pr,pr),ret=mean(pr)*252,vol=Math.sqrt(vp*252);
+ let c=1,pk=1,dd=0;for(const r of pr){c*=1+r;pk=Math.max(pk,c);dd=Math.min(dd,c/pk-1)}
+ let cs=0,np=0,mx={c:-2};for(let i=0;i<T.length;i++)for(let j=i+1;j<T.length;j++){const k=cov(R[i],R[j])/Math.sqrt(cov(R[i],R[i])*cov(R[j],R[j]));cs+=k;np++;if(k>mx.c)mx={c:k,a:T[i],b:T[j]}}
+ const rows=T.map((t,i)=>({t,w:w[i],rc:w[i]*cov(R[i],pr)/vp})),cl={};rows.forEach(r=>{const u=S.u.find(x=>x.t===r.t);cl[u.c]=(cl[u.c]||0)+r.w});
+ return{rows,ret,vol,sharpe:(ret-S.cfg.rf)/vol,dd,avg:cs/np,mx,cl,skipped:ts.filter(t=>!T.includes(t))}}
+const fund=(r,inf,idx,sy,sr)=>{const o=[];let b=0;for(let y=2027;y<=2042;y++){const add=y===2027?300000:y===2028?150000:0,pay=y>=2033?50000*(idx?Math.pow(1+inf,y-2033):1):0;b+=add;const st=b,pd=Math.min(b,pay);b-=pd;b*=1+(y===sy?sr:r);o.push({y,st,add,pay,sh:pay-pd,end:b})}return o};
+const pv=(inf,idx,rf)=>{let s=0;for(let k=0;k<10;k++)s+=50000*(idx?Math.pow(1+inf,k):1)/Math.pow(1+rf,k);return s};
+function mc(){const c=S.fc,R=rng(7),m=Math.log(1+c.r)-c.sd*c.sd/2,E=[],B=[],SH=[];let ok=0;
+ for(let p=0;p<c.n;p++){let b=0,sh=0,b33=0;for(let y=2027;y<=2042;y++){b+=y===2027?300000:y===2028?150000:0;if(y===2033)b33=b;if(y>=2033){const pay=50000*(c.idx?Math.pow(1+c.inf,y-2033):1),pd=Math.min(b,pay);sh+=pay-pd;b-=pd}b*=Math.exp(m+c.sd*gz(R))}if(sh<=0)ok++;E.push(b);B.push(b33);SH.push(sh)}
+ const q=(a,p)=>a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.floor(p*a.length))];
+ return{ok:ok/c.n,e:[.1,.25,.5,.75,.9].map(p=>q(E,p)),b33:q(B,.1),b50:q(B,.5),maxsh:Math.max(...SH)}}
+const $$=v=>"$"+Math.round(v).toLocaleString("en-US");
+function fscen(){const c=S.fc;return S.sc.map(s=>{const inf=s.inf??c.inf,idx=s.idx??c.idx,r=fund(c.r+s.dr,inf,idx,s.sy,s.sr),sh=r.reduce((a,x)=>a+x.sh,0),b33=r[6].st,need=pv(inf,idx,c.rf);return{s,r,sh,b33,need,v:sh>0?"SHORTFALL":b33>=need?"GREEN":"WATCH"}})}
+const Q_=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+function exportText(D,SC,F,P,M,FS){const keep=S.u.filter(u=>(S.dec[u.t]||{}).d);
+ if(S.xt==="Master dataset CSV")return["ticker,name,asset_class,score,"+MK.concat(Object.keys(EXTRA)).join(",")].concat(S.u.map(u=>[u.t,u.n,u.c,SC[u.t].s==null?"N/A":SC[u.t].s.toFixed(1)].concat(MK.concat(Object.keys(EXTRA)).map(k=>D[u.t][k]?D[u.t][k].v:"N/A")).map(Q_).join(","))).join("\n");
+ if(S.xt==="Team decisions CSV")return["ticker,decision,reason,score"].concat(keep.map(u=>[u.t,S.dec[u.t].d,S.dec[u.t].why||"[TEAM INPUT REQUIRED]",SC[u.t].s==null?"N/A":SC[u.t].s.toFixed(1)].map(Q_).join(","))).join("\n");
+ if(S.xt==="Funding model CSV")return["scenario,year,start_balance,contribution,payment,shortfall,end_balance"].concat(FS.flatMap(f=>f.r.map(x=>[f.s.n,x.y,x.st,x.add,x.pay,x.sh,x.end].map(v=>typeof v==="number"?v.toFixed(0):v).join(",")))).join("\n");
+ const k=keep.filter(u=>S.dec[u.t].d==="Keep"),L=[];const T=t=>L.push("\n"+t);
+ L.push("WHARTON GLOBAL HIGH SCHOOL INVESTMENT COMPETITION 2026–27 — WORKING REPORT OUTLINE","Generated "+now()+" · Deadlines (as provided by the team): Trading Notes Oct 23, 2026 · IPS Nov 6, 2026 · Final Report Dec 4, 2026","Data mode: "+nsrc()+(S.sample?" · USER-PROVIDED SAMPLE — NOT VERIFIED AS COMPLETE OFFICIAL WInS UNIVERSE":""));
+ T("1. EXECUTIVE SUMMARY\n[TEAM INPUT REQUIRED]");T("2. UNDERSTANDING LAURA / INVESTMENT PROBLEM / OBJECTIVES / CONSTRAINTS\nScheduled inputs: $300,000 at start of 2027; $150,000 at start of 2028; $50,000 at start of each year 2033–2042 ($500,000 total).\n[TEAM INPUT REQUIRED: Laura's preferences, objectives and constraints from the case]");
+ T("3. UNIVERSE & SCREENING (funnel)");F.st.forEach(x=>L.push(`${x.n}: start ${x.a}, removed ${x.r}, remaining ${x.a-x.r}`));
+ T("4. TEAM DECISIONS ("+k.length+" Keep)");keep.forEach(u=>L.push(`${u.t} — ${S.dec[u.t].d} — score ${SC[u.t].s==null?"N/A":SC[u.t].s.toFixed(1)} — ${S.dec[u.t].why||"[TEAM INPUT REQUIRED: reason]"}`));
+ T("5. QUALITATIVE / ICEBERG / RIPPLE / THESIS CARDS\n[TEAM INPUT REQUIRED for each Keep security: what is changing, why now, evidence + source + date, bull/bear case, invalidation trigger, role, thesis half-life]");
+ T("6. PORTFOLIO");if(P)L.push(`Equal/custom weights over ${P.rows.length} securities · hist. return ${(P.ret*100).toFixed(1)}% · vol ${(P.vol*100).toFixed(1)}% · Sharpe ${P.sharpe.toFixed(2)} · max drawdown ${(P.dd*100).toFixed(1)}% · avg pairwise correlation ${P.avg.toFixed(2)} (historical, from ${nsrc()})`);else L.push("[Mark ≥2 securities Keep]");
+ T("7. FUNDING & STRESS (deterministic, return "+(S.fc.r*100).toFixed(1)+"%)");FS.forEach(f=>L.push(`${f.s.n}: 2033 balance ${$$(f.b33)} vs reserve estimate ${$$(f.need)} · total shortfall ${$$(f.sh)} · ${f.v}`));
+ L.push(`Monte Carlo (${S.fc.n} paths, mean ${(S.fc.r*100).toFixed(1)}%, vol ${(S.fc.sd*100).toFixed(1)}%): P(all ten payments) ${(M.ok*100).toFixed(1)}% · median ending wealth ${$$(M.e[2])} · P10 ${$$(M.e[0])} · P90 ${$$(M.e[4])}. A simulation, not a prediction.`);
+ T("8. TRADING NOTES (one per trade)\nWhat did we do? / Why? / Evidence / Fit with strategy / Risk accepted / What would prove us wrong? / What happened afterward?\n[TEAM INPUT REQUIRED]");T("9. IPS, STRATEGY EVOLUTION, FACILITY CONTRIBUTION, CONCLUSION\n[TEAM INPUT REQUIRED]");return L.join("\n")}
+// ---------- UI ----------
+const fmt=(k,v)=>k==="last_close"?v.toFixed(2):typeof v!=="number"?v:PCT.has(k)?(v*100).toFixed(1)+"%":Math.abs(v)>=1e6?v.toExponential(2):v.toFixed(2);
+const ban=l=>`<div class="ban ${lc(l)}" style="border-color:currentColor">Result confidence: ${l}</div>`;
+const nsrc=()=>{const s=new Set(Object.values(S.src));return s.has("upload")&&s.has("demo")?"MIXED (demo + upload)":s.has("demo")?"DEMO — synthetic data":s.has("upload")?"UPLOADED DATA":"NO DATA"};
+function draw(){const D=dps(),Q=quality(D);
+ $h.innerHTML=`Mode: <b>${nsrc()}</b> · Last refresh: ${S.last||"never"}`+(S.sample?`<div class="PARTIAL" style="font-weight:600">USER-PROVIDED SAMPLE — NOT VERIFIED AS COMPLETE OFFICIAL WInS UNIVERSE</div>`:"");
+ $t.innerHTML=["Data","Screener","Portfolio","Funding","Documents","Quality","ML model"].map(n=>`<button class="${n===tab?"on":""}" onclick="tab='${n}';draw()">${n}</button>`).join("");
+ let h="";
+ if(tab==="Data")h=`<div class="card"><b>1. Load data</b><div class="mu">Real data can't be fetched from inside this page. Upload your WInS universe and a price history (YYYY-MM-DD) from any source, or try the demo.</div>
+  <div class="row"><button class="pri" onclick="loadDemo()">Load demo data</button>
+  <label class="btn">Upload universe CSV<input type="file" accept=".csv" onchange="rd(this,loadUniverse)"></label>
+  <label class="btn">Upload prices CSV<input type="file" accept=".csv" onchange="rd(this,loadPrices)"></label></div>
+  <div class="mu">Universe: ticker,name,asset_class (optional columns: market_cap, pe_ratio, eps, roe, expense_ratio, aum, …). Prices: ticker,date,close or date,TICKER1,TICKER2…</div></div>
+  <div class="card"><b>2. Settings</b> <span class="mu">(metrics recalculate instantly)</span><div class="row">
+  Risk-free <input type="number" step="0.005" value="${S.cfg.rf}" onchange="S.cfg.rf=+this.value;save();draw()">
+  Benchmark <input type="text" value="${S.cfg.bench}" onchange="S.cfg.bench=this.value.toUpperCase();save();draw()">
+  Lookback days <input type="number" step="30" value="${S.cfg.lb}" onchange="S.cfg.lb=+this.value;save();draw()"></div></div>
+  <div class="card"><b>3. Refresh</b><div class="row"><button class="pri" onclick="refresh()">Refresh Data</button><button onclick="if(confirm('Clear all saved data?')){S=Object.assign(mkS(),{cfg:S.cfg});save();draw()}">Clear cache</button></div><pre>${S.log.join("\n")}</pre></div>`;
+ if(tab==="Screener"||tab==="Portfolio"||tab==="Documents"||tab==="Funding"){const SC=score(D),F=funnel(D,SC),FS=fscen();
+ if(tab==="Screener"){const ak=["asset_class",...[...new Set(S.u.flatMap(u=>Object.keys(u.a||{})))]].filter(k=>{const v=new Set(S.u.map(u=>attr(u,k)).filter(Boolean));return v.size>1&&v.size<=60});
+  h=ban(Q.all)+`<div class="card"><b>Filters</b> <span class="mu">(combine freely; an empty box = no limit; % metrics in %)</span><div class="row"><input type="text" style="width:130px" placeholder="search ticker/name" value="${esc(S.f.q)}" onchange="S.f.q=this.value;save();draw()">
+  ${ak.map(k=>`<select onchange="S.f.a['${k}']=this.value;save();draw()"><option value="">${k}: all</option>${[...new Set(S.u.map(u=>attr(u,k)).filter(Boolean))].sort().map(v=>`<option ${S.f.a[k]===v?"selected":""}>${esc(v)}</option>`).join("")}</select>`).join("")}</div>
+  <div class="row">${FK.map(k=>`<span title="${esc(INFO[k]||"")}">${k}${PCT.has(k)?" %":""} <input type="number" step="any" style="width:60px" placeholder="min" value="${S.f.lo[k]??""}" onchange="S.f.lo['${k}']=this.value;save();draw()"> <input type="number" step="any" style="width:60px" placeholder="max" value="${S.f.hi[k]??""}" onchange="S.f.hi['${k}']=this.value;save();draw()"></span>`).join(" · ")}</div>
+  <div class="row"><b>Score weights</b> ${Object.keys(S.w).map(k=>`<span title="${esc(INFO[k]||"")}">${k} <input type="number" step="0.05" style="width:60px" value="${S.w[k]}" onchange="S.w['${k}']=+this.value;save();draw()"></span>`).join(" ")}</div></div>
+  <div class="card sc"><b>Screening funnel</b><table><tr><th>Stage</th><th>Start</th><th>Removed</th><th>Remaining</th></tr>${F.st.map(x=>`<tr><td style="white-space:normal">${x.n}</td><td>${x.a}</td><td>${x.r}</td><td>${x.a-x.r}</td></tr>`).join("")}</table></div>
+  <div class="card sc"><table><tr><th>Ticker</th><th>Name</th><th>Class</th><th>Score</th><th title="${esc(INFO.cagr)}">CAGR</th><th title="${esc(INFO.volatility)}">Vol</th><th title="${esc(INFO.sharpe)}">Sharpe</th><th>Team</th></tr>
+  ${F.L.sort((a,b)=>(SC[b.t].s??-1)-(SC[a.t].s??-1)).map(u=>{const c=k=>D[u.t][k]?fmt(k,D[u.t][k].v):`<span class="na">${NA}</span>`;return`<tr onclick="S.sel='${u.t}';draw()" style="cursor:pointer"><td><b>${u.t}</b></td><td>${esc(u.n||"—")}</td><td>${esc(u.c)}</td><td>${SC[u.t].s==null?"N/A":SC[u.t].s.toFixed(0)}</td><td>${c("cagr")}</td><td>${c("volatility")}</td><td>${c("sharpe")}</td><td>${(S.dec[u.t]||{}).d||"—"}</td></tr>`}).join("")}</table></div><div class="mu">Tap a row for the full analysis. <sup>Scores are min–max normalized across your universe; they rank, they don't decide.</sup></div>`;
+  const t=S.sel,u=S.u.find(x=>x.t===t);if(u){const z=SC[t],d=S.dec[t]||{};h+=`<div class="card sc"><b>${t}</b> ${esc(u.n)} · ${esc(u.c)}<h2>Why did ${t} receive ${z.s==null?"N/A":z.s.toFixed(0)}?</h2><table><tr><th>Metric</th><th>Raw</th><th>Normalized 0–100</th><th>Weight</th><th>Contribution</th></tr>
+  ${z.rows.map(r=>`<tr><td>${r.k}</td><td>${fmt(r.k,r.raw)}</td><td>${r.n.toFixed(0)}</td><td>${(r.wn*100).toFixed(0)}%</td><td>${r.c.toFixed(1)}</td></tr>`).join("")}<tr><td><b>Total</b></td><td></td><td></td><td>100%</td><td><b>${z.s==null?"N/A":z.s.toFixed(1)}</b></td></tr></table>
+  ${z.miss.length?`<div class="mu">Not scored (data missing, weights re-spread): ${z.miss.join(", ")}</div>`:""}
+  <h2>Team decision <span class="mu">(model result ≠ decision)</span></h2><div class="row">${["Keep","Remove","Watch","Research more"].map(x=>`<button class="${d.d===x?"pri":""}" onclick="S.dec['${t}']={d:'${x}',why:(S.dec['${t}']||{}).why||''};save();draw()">${x}</button>`).join("")}</div>
+  <input type="text" style="width:100%;box-sizing:border-box" placeholder="Why? (required for the report)" value="${esc(d.why||"")}" onchange="S.dec['${t}']=Object.assign(S.dec['${t}']||{d:'Watch'},{why:this.value});save();draw()">
+  <h2>All metrics</h2><table>${MK.concat(Object.keys(EXTRA),["ml_score"]).map(k=>`<tr><td>${k}</td><td>${D[t][k]?fmt(k,D[t][k].v)+" <span class=mu>"+(D[t][k].st==="DEMO"?"demo (synthetic)":"source: "+(S.src[t]||"uploaded CSV"))+"</span>":`<span class="na">${NA}</span>`}</td></tr>`).join("")}</table>
+  <details><summary>Metric guide</summary>${Object.entries(INFO).map(([k,v])=>`<p><b>${k}</b> — ${v}</p>`).join("")}</details></div>`}}
+ if(tab==="Portfolio"){const keep=S.u.filter(u=>(S.dec[u.t]||{}).d==="Keep").map(u=>u.t),P=pstats(keep);
+  h=ban(Q.all)+`<div class="card"><b>Portfolio from your "Keep" list (${keep.length})</b><div class="mu">Weights default to equal; edit them below (they are re-normalized). Statistics are historical${S.sample?" and computed on SYNTHETIC demo prices":""}, not forecasts.</div></div>`;
+  if(!P)h+=`<div class="card">Mark at least 2 securities as <b>Keep</b> (Screener → tap a row) and make sure they have prices.</div>`;
+  else h+=`<div class="g"><div>Hist. return<b>${(P.ret*100).toFixed(1)}%</b></div><div>Volatility<b>${(P.vol*100).toFixed(1)}%</b></div><div>Sharpe<b>${P.sharpe.toFixed(2)}</b></div><div>Max drawdown<b>${(P.dd*100).toFixed(1)}%</b></div><div>Avg correlation<b>${P.avg.toFixed(2)}</b></div></div>
+  <div class="mu">Most correlated pair: ${P.mx.a}/${P.mx.b} (${P.mx.c.toFixed(2)}) · Asset classes: ${Object.entries(P.cl).map(([k,v])=>k+" "+(v*100).toFixed(0)+"%").join(", ")}${P.skipped.length?" · skipped (no price history): "+P.skipped.join(", "):""}</div>
+  <div class="card sc"><table><tr><th>Ticker</th><th>Weight %</th><th>Risk contribution</th></tr>${P.rows.map(r=>`<tr><td>${r.t}</td><td><input type="number" step="any" style="width:70px" value="${(r.w*100).toFixed(1)}" onchange="S.pw['${r.t}']=+this.value;save();draw()"></td><td>${(r.rc*100).toFixed(0)}%</td></tr>`).join("")}</table><div class="row"><button onclick="S.pw={};save();draw()">Equal weight</button></div></div><div class="mu">Not included in this version: efficient frontier, optimizer limits, per-role assignment.</div>`}
+ if(tab==="Funding"){const c=S.fc,M=mc(),need=pv(c.inf,c.idx,c.rf),inp=(k,pct)=>`<input type="number" step="any" value="${pct?+(c[k]*100).toFixed(2):c[k]}" onchange="S.fc['${k}']=${pct?"this.value/100":"+this.value"};save();draw()">`;
+  h=`<div class="card"><b>Laura's funding model</b> <span class="mu">($300,000 start 2027 · +$150,000 start 2028 · $50,000 at the start of each year 2033–2042)</span><div class="row">Return % ${inp("r",1)} Volatility % ${inp("sd",1)} Inflation % ${inp("inf",1)} Risk-free % ${inp("rf",1)} Paths ${inp("n",0)}
+  <label><input type="checkbox" ${c.idx?"checked":""} onchange="S.fc.idx=this.checked;save();draw()"> index payments to inflation</label></div></div>
+  <div class="g"><div>P(all 10 payments)<b>${(M.ok*100).toFixed(1)}%</b></div><div>Median ending wealth<b>${$$(M.e[2])}</b></div><div>P10 / P25<b style="font-size:14px">${$$(M.e[0])} / ${$$(M.e[1])}</b></div><div>P75 / P90<b style="font-size:14px">${$$(M.e[3])} / ${$$(M.e[4])}</b></div><div>P(shortfall)<b>${((1-M.ok)*100).toFixed(1)}%</b></div><div>Worst shortfall<b>${$$(M.maxsh)}</b></div></div>
+  <div class="mu">Simulation assumptions: yearly returns are lognormal with the mean and volatility above, fixed seed, ${c.n} paths, no rebalancing or taxes. A simulation shows a range of outcomes, not a prediction.</div>
+  <div class="card"><b>Reserve at start of 2033</b> <span class="mu">MODEL ESTIMATE</span><br>Present value of the ten payments at the risk-free rate: <b>${$$(need)}</b>. Balance at start of 2033 — median ${$$(M.b50)}, 10th percentile ${$$(M.b33)}. Indicative room above the reserve at the 10th percentile: <b>${$$(Math.max(0,M.b33-need))}</b> (an input to the team's facility-contribution discussion, not advice).</div>
+  <div class="card sc"><b>Stress tests</b> <span class="mu">(edit any assumption)</span><table><tr><th>Scenario</th><th>Return shift %</th><th>Shock yr</th><th>Shock %</th><th>Infl %</th><th>2033 balance</th><th>Reserve est.</th><th>Shortfall</th><th>Status</th></tr>
+  ${FS.map((f,i)=>`<tr><td style="white-space:normal">${f.s.n}</td><td><input type="number" step="any" style="width:55px" value="${+(f.s.dr*100).toFixed(2)}" onchange="S.sc[${i}].dr=this.value/100;save();draw()"></td><td><input type="number" style="width:65px" value="${f.s.sy}" onchange="S.sc[${i}].sy=+this.value;save();draw()"></td><td><input type="number" step="any" style="width:55px" value="${+(f.s.sr*100).toFixed(2)}" onchange="S.sc[${i}].sr=this.value/100;save();draw()"></td><td><input type="number" step="any" style="width:55px" value="${+((f.s.inf??c.inf)*100).toFixed(2)}" onchange="S.sc[${i}].inf=this.value/100;S.sc[${i}].idx=true;save();draw()"></td><td>${$$(f.b33)}</td><td>${$$(f.need)}</td><td>${$$(f.sh)}</td><td><span class="b ${f.v==="GREEN"?"HIGH":f.v==="WATCH"?"PARTIAL":"INSUF"}">${f.v}</span></td></tr>`).join("")}</table></div>
+  <div class="card sc"><b>Base-case timeline</b><table><tr><th>Year</th><th>Start</th><th>Added</th><th>Payment</th><th>Shortfall</th><th>End</th></tr>${FS[0].r.map(x=>`<tr><td>${x.y}</td><td>${$$(x.st)}</td><td>${$$(x.add)}</td><td>${$$(x.pay)}</td><td>${$$(x.sh)}</td><td>${$$(x.end)}</td></tr>`).join("")}</table></div>`}
+ if(tab==="Documents"){const keep=S.u.filter(u=>(S.dec[u.t]||{}).d==="Keep").map(u=>u.t),P=pstats(keep),M=mc(),txt=exportText(D,SC,F,P,M,FS);
+  h=`<div class="card"><b>Exports & report workspace</b><div class="mu">Pick a document, then Copy and paste it into Excel / Google Docs. Anything the app can't know says [TEAM INPUT REQUIRED].</div><div class="row"><select onchange="S.xt=this.value;save();draw()">${["Report outline","Master dataset CSV","Team decisions CSV","Funding model CSV"].map(x=>`<option ${S.xt===x?"selected":""}>${x}</option>`).join("")}</select><button class="pri" onclick="const t=document.getElementById('ex');t.select();try{navigator.clipboard.writeText(t.value)}catch(e){document.execCommand('copy')}">Copy</button></div>
+  <textarea id="ex" readonly style="width:100%;box-sizing:border-box;height:360px;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;font:12px monospace">${esc(txt)}</textarea></div>`}}
+ if(tab==="Quality"){const fails=S.rej;h=ban(Q.all)+`<div class="g"><div>Avg complete<b>${(Q.avg*100).toFixed(0)}%</b></div><div>Rejected rows<b>${fails}</b></div><div>Duplicate universe rows<b>${S.dupU}</b></div><div>Duplicate price dates<b>${S.dupP}</b></div><div>Source conflicts<b>0</b></div><div>Stale series<b>${Q.rows.filter(r=>r.stale).length}</b></div></div>
+  <div class="card sc"><table><tr><th>Ticker</th><th>Complete</th><th>Status</th><th>Missing metrics</th></tr>${Q.rows.map(r=>`<tr><td>${r.t}</td><td>${(r.p*100).toFixed(0)}%</td><td><span class="b ${lc(r.l)}">${r.l}</span></td><td style="white-space:normal;text-align:left">${r.miss.join(", ")||"—"}</td></tr>`).join("")}</table></div>
+  <div class="mu">Demo data can never reach HIGH CONFIDENCE. Source conflicts need 2+ providers (only one source is possible in this web version).</div>`}
+ if(tab==="ML model"){const m=S.ml;h=ban(Q.all)+`<div class="card"><div class="mu">Ridge regression ranks securities by predicted next-month return vs the average security. Validated walk-forward (trains only on the past) and compared with a "buy 6-month winners" baseline.</div>
+  <div class="row"><button class="pri" onclick="runML()">Train model</button></div>${S.mlerr?`<div class="INSUF">${S.mlerr}</div>`:""}</div>`;
+  if(m)h+=`<div class="card sc"><b>Walk-forward results</b> <span class="mu">(${m.demo?"SYNTHETIC demo data":"your data"}, trained ${m.at})</span><table><tr><th>Model</th><th>Months</th><th>Mean IC</th><th>t-stat</th><th>Hit rate</th><th>Top−bottom / mo</th><th>Verdict</th></tr>
+  ${Object.entries(m.rep).map(([k,r])=>`<tr><td>${k}</td><td>${r.n}</td><td>${r.ic||"—"}</td><td>${r.t||"—"}</td><td>${r.hit||"—"}</td><td>${r.sp||"—"}</td><td>${r.verdict}</td></tr>`).join("")}</table></div>
+  <div class="mu">Trust ml_score only if the ridge verdict says SIGNAL. IC = rank correlation between prediction and what actually happened.</div>`}
+ $v.innerHTML=h}
+function srt(k){sd=sk===k?-sd:-1;sk=k;draw()}
+function runML(){const r=train();if(r.err){S.mlerr=r.err}else{S.mlerr="";S.ml=r}save();draw()}
+function rd(el,fn){const f=el.files[0];if(f)f.text().then(fn);el.value=""}
+const $h=document.getElementById("hd"),$t=document.getElementById("tabs"),$v=document.getElementById("v");
+if(!S.u.length)loadDemo();else draw();
+</script></body></html>

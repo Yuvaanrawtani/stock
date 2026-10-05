@@ -1,0 +1,4 @@
+ticker,name,asset_class,country,sector,theme,wins_approved,expense_ratio,aum,pe_ratio,holdings_count,top10_concentration,largest_holding
+VTI,Vanguard Total Stock Market ETF,Equity ETF,United States,Broad,Core,UNKNOWN,0.0003,1400000000000,,3500,0.28,AAPL
+BND,Vanguard Total Bond Market ETF,Fixed Income ETF,United States,Fixed Income,Core,UNKNOWN,0.0003,100000000000,,,,
+SPY,SPDR S&P 500 ETF,Equity ETF,United States,Broad,Benchmark,UNKNOWN,0.0009,500000000000,22,500,0.32,AAPL

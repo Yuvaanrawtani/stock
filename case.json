@@ -1,0 +1,21 @@
+{
+  "client_name": "Laura Gao",
+  "competition": "Wharton Global High School Investment Competition 2026–27",
+  "initial_contribution": {"year": 2027, "amount": 300000, "timing": "beginning of year"},
+  "additional_contribution": {"year": 2028, "amount": 150000, "timing": "beginning of year"},
+  "operating_payments": {
+    "start_year": 2033,
+    "end_year": 2042,
+    "amount": 50000,
+    "count": 10,
+    "total": 500000,
+    "timing": "beginning of each year",
+    "inflation_indexed": false,
+    "note": "Fixed nominal payments according to the case. Inflation indexing is OFF by default."
+  },
+  "reserve_year": 2033,
+  "facility_estimate_year": 2031,
+  "horizon_end": 2042,
+  "philosophy": "We don't invest when every strategy agrees. We investigate when strong strategies disagree.",
+  "wins_simulation_warning": "The WInS simulation portfolio is NOT Laura's actual long-term portfolio. Never add or subtract WInS simulated gains/losses from Laura's long-term projection."
+}

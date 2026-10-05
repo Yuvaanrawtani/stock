@@ -1,0 +1,14 @@
+{
+  "thesis_strength": 0.12,
+  "thesis_durability": 0.10,
+  "market_tension": 0.08,
+  "catalyst": 0.08,
+  "fundamental_quality": 0.12,
+  "valuation": 0.10,
+  "risk": 0.10,
+  "diversification": 0.06,
+  "scenario_resilience": 0.08,
+  "laura_alignment": 0.08,
+  "funding_compatibility": 0.05,
+  "data_confidence": 0.03
+}
