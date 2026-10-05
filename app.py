@@ -1,7 +1,11 @@
 from __future__ import annotations
+from __future__ import annotations
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Create a virtual link for the module lookups
+sys.modules['src'] = sys.modules[__name__]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 """WiNS Investment Research Engine – Streamlit app (Thesis Tension for Laura Gao)."""
 
