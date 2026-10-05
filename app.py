@@ -1,13 +1,11 @@
 from __future__ import annotations
 import sys
 sys.path.append('.')
-import sys
-sys.path.append('.')
-"""WInS Investment Research Engine — Streamlit app (Thesis Tension for Laura Gao)."""
 
-from __future__ import annotations
+"""WiNS Investment Research Engine – Streamlit app (Thesis Tension for Laura Gao)."""
 
 import json
+
 from io import StringIO
 
 import numpy as np
