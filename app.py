@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 """WInS Investment Research Engine — Streamlit app (Thesis Tension for Laura Gao)."""
 
 from __future__ import annotations
