@@ -1,6 +1,7 @@
 from __future__ import annotations
 import sys
-sys.path.append('.')
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 """WiNS Investment Research Engine – Streamlit app (Thesis Tension for Laura Gao)."""
 
